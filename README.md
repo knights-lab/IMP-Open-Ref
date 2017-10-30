@@ -1,3 +1,4 @@
+Code in this repo attempts to do open ref BURST using the IMP dataset. Currently about 10% of sequences are not hitting the reference database. With open-ref, we're able to get the number of non-hits down to only 2.2%.
 
     Reminder of what EMBALMER's output looks like
     Querylabel targetlabel percentid alignmentlength nummismatch numgap startposq endposq startpost endpost evalue bitscore taxonomy 
@@ -116,7 +117,7 @@ Replace all underscores in otutable to spaces
 ```        
 
 # Realign all previously hit and failed sequences to the reference + denovo reps (in case new hits are better)
-Start by adding the rep_seqs.fa to PROK_170704.fna, create the databases, and use the previously generated taxonomy file (that combined PROK with the 70% aligned rep_set)
+8. Start by adding the rep_seqs.fa to PROK_170704.fna, create the databases, and use the previously generated taxonomy file (that combined PROK with the 70% aligned rep_set)
 ```
 cat /project/flatiron2/sop/PROK_170704.fna rep_seqs.fa > PROK_170704_REPSEQS.fa
 
@@ -133,7 +134,7 @@ embalmulate embalmer_rerun_all_seqs.b6 otutable_rerun_all.txt taxatable_rerun_al
 # Parsed 19964535 reads [377 samples, 1901 taxa, 2044 refs]. Collating...
 19964535/20403142 = 97.8% now hit!
 ```
-Replace all underscores in otutable to spaces     
+9. Transfer to local machine. Replace all underscores in otutable to spaces.
 ```
 cd /Users/pvangay/Dropbox/UMN/KnightsLab/Embalmer-Open-Ref/output/with\ all\ seqs\ realigned
 bash /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/embalmer_to_qiime_output.sh otutable_rerun_all.txt taxatable_rerun_all.txt ./ /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/sequences_110716_dimitri_with_PROK_170704/PROK_170704.tre openref
