@@ -1,21 +1,23 @@
 README
 
-    embalmer_output.b6 - output from embalmer contains reads that hit, in blast format
+# Pre-processing
 
+    Reminder on what EMBALMER's output looks like
     Querylabel targetlabel percentid alignmentlength nummismatch numgap startposq endposq startpost endpost evalue bitscore taxonomy 
     T.CS.141_47670	367213	98.909088	275	3	0	1	275	504	779	3	0	k__Bacteria; p__Firmicutes; c__Clostridia; o__Clostridiales; f__Ruminococcaceae
 
 1. Grab all sequences that don't hit the database with EMBALMER
-
-    Log into Teraminx
-        # in /project/flatiron2/pj/imp/all_seq_runs/PROK
+    *Teraminx*
+    ```bash
+        cd /project/flatiron2/pj/imp/all_seq_runs/PROK
         sed 's/\t.*$//' embalmer_output.b6 > seqids.hit.txt
         # transfer to msi
         scp ./seqids.hit.txt vanga015@login.msi.umn.edu:./openref
         cd ../1.trimmed_filtered_fastas
         scp ./combined.seqs.fna vanga015@login.msi.umn.edu:./openref
-    
-    Log into MSI
+    ```
+    *MSI*
+    ```bash
         # run filter.fasta.py on large server (takes too much memory to run interactively)
         qsub -q ram1t filter.fasta.pbs
         # transfer results over back to teraminx
@@ -23,53 +25,59 @@ README
         # note: approx 10% didn't hit
             combined_seqs.fna has 20403142 sequences
             combined_seqs_nothit.fna has 2130548 sequences
+    ```
     
 2. On Teraminx, run ninja_filter.exe (use latest version in /project/flatiron2/sop/bin - already in path) to deduplicate
+    ```bash
     cd $FHOME/imp/all_seq_runs/OPENREF
     mkdir ninja_filter
     /project/flatiron2/sop/bin/ninja_filter_linux ./combined_seqs_nothit.fna D20 D 20
     # "D 2" throws out singletons
     # "D 20" throws out anything that doesn't have at least 20 copies of something
     # add D20 as the prefix for both db file and fa file
-    
+    ```
     This will produce two files: D20.db and D20_filt.fa
     D20_filt.fa = contains all sequences that appeared 20 times or more
     D20.db = acts like a key to tell you where they appeared
-        # don't need to know this but in case we care....
-        #line1: num samples
-        #nextlines: list sample names
-        #nextlines: for each unique sequence, lists colon-delimited pairs of sample-id-line-number and number of duplicates (92:1 = this sequence appears one time in sample ID found in line (92+2) of D20.db)
-    # use this to manually understand what is going on with this one sequence
+    Don't need to know this but just in case:
+    * line1: num samples
+    * nextlines: list sample names
+    * nextlines: for each unique sequence, lists colon-delimited pairs of sample-id-line-number and number of duplicates (92:1 = this sequence appears one time in sample ID found in line (92+2) of D20.db)
+
+    Manually check that this sequence appears correctly in shi7 file
+    ```
     grep -B1 '^AATACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGTCTGCAAGTCAGATGTGAAATCCATGGGCTCAACCCATGAACTGCATTTGAAACTGTAGATCTTGAGTGTCGGAGGGGCAATCGGAATTCCTAGTGTAGCGGTGAAATGCGTAGATATTAGGAGGAACACCAGTGGCGAAGGCGGATTGCTGGACGATAACTGACGGTGAGGCGCGAAAGTGTGGGGAGCAAACAGGATTAGATACCCGAGTAGTCC' ./combined_seqs_nothit.fna
+    ```
     
 3. Using sequences that appeared more than 20 times, run all-vs-all embalmer
-        time emb12 -r D20_filt.fa -q D20_filt.fa  -o /project/flatiron2/pj/imp/all_seq_runs/OPENREF/embalmer_D20.b6 -n -m FORAGE -bs -i 0.935 -f -sa
+```
+    time emb12 -r D20_filt.fa -q D20_filt.fa  -o /project/flatiron2/pj/imp/all_seq_runs/OPENREF/embalmer_D20.b6 -n -m FORAGE -bs -i 0.935 -f -sa
     # note that to include a more comprehensive list of all-vs-all, decrease -i to .001
-
+```
 4. Generate distance matrix from embalmer output
-    Rscript embalmer.to.dm.r -i embalmer_D20.b6 -o D20_dm.txt
+   Rscript embalmer.to.dm.r -i embalmer_D20.b6 -o D20_dm.txt
     
-5. Calculate optimal number of clusters by generating a bunch of asw scores in parallel (on teraminx) (start 4 processes)
-
+5. Calculate optimal number of clusters by generating a bunch of asw scores in parallel (start 4 processes on Teraminx)
+```
     Rscript compute.asw.r -i D20_dm.txt -s 2 -e 25 & Rscript compute.asw.r -i D20_dm.txt -s 26 -e 50 & Rscript compute.asw.r -i D20_dm.txt -s 51 -e 75 & Rscript compute.asw.r -i D20_dm.txt -s 76 -e 100
     
     # continue increasing the number of clusters
     Rscript compute.asw.r -i D20_dm.txt -s 101 -e 125 & Rscript compute.asw.r -i D20_dm.txt -s 126 -e 150 & Rscript compute.asw.r -i D20_dm.txt -s 151 -e 175 & Rscript compute.asw.r -i D20_dm.txt -s 176 -e 200
    
-   # result is k = 111!!!!
-    
+   # optimal k = 111!!!!
+``` 
+
 6.  Now actually cluster using k=111 on teraminx and save the object to file (to be reopened on local comp). This will output a table of medoid representative IDs.
-
+```
     Rscript ./run.pam.r -i ./D20_dm.txt -k 111 -o pam.111.obj
-
+```
 7.  Now let's grab the actual representative sequences and make it our reference db
-
+```
     filter_fasta.py -f D20_filt.fa -s medoid.ids.txt -o rep_seqs.fa
-
-# these steps actually just realign failed ones to the new rep_seqs, but it's better to probably realign everything to each other (see below)_
-    
-        8. Now run BURST using these new rep_seqs.fa with all of the ones that failed /project/flatiron2/pj/imp/all_seq_runs/OPENREF/combined_seqs_nothit.fna
-
+```
+#  Steps to only realign failed sequences
+8. Now run BURST using these new rep_seqs.fa with all of the ones that failed /project/flatiron2/pj/imp/all_seq_runs/OPENREF/combined_seqs_nothit.fna
+```
             # make your embalmer database files based on the rep_seqs.fa
             burst12 -d -o rep_seqs.edb -a rep_seqs.acc -r rep_seqs.fa -f
 
@@ -102,18 +110,18 @@ README
             # rename otutable_tax.txt to otutable.txt and taxatable_tax.txt to taxatable.txt
     
             # replace all underscores in otutable to spaces
-     
-        9.  mkdir qiime_files
-            bash /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/embalmer_to_qiime_output.sh otutable_formatted.txt taxatable.txt ./qiime_files /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/sequences_110716_dimitri_with_PROK_170704/PROK_170704.tre openref
-    
-        10. summarize taxa
-            Rscript /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/analysis/lib/embalmer-post-processing/gabe.burst.summarize.r -i ./qiime_files/taxa0_s2_f.txt
-    
-            # manually add "Unknown" for blank taxon name
-            
-# let's realign all sequences to the reference database AND the new denovo rep sets (in case even the sequences that hit, actually match closer to the denovo rep set)
-    # start by adding the rep_seqs.fa to PROK_170704.fna, create the databases, and use the previously generated taxonomy file (that combined PROK with the 70% aligned rep_set)
+```
+9.  Transfer OTU and Taxa files back to local computer, then generate qiime files 
+```
+    mkdir qiime_files
+    bash /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/embalmer_to_qiime_output.sh otutable_formatted.txt taxatable.txt ./qiime_files /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/sequences_110716_dimitri_with_PROK_170704/PROK_170704.tre openref
+    Rscript /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/analysis/lib/embalmer-post-processing/gabe.burst.summarize.r -i ./qiime_files/taxa0_s2_f.txt
+    # manually add "Unknown" for blank taxon name
+```        
 
+# Realign all previously hit and failed sequences to the reference + denovo reps (in case new hits are better)
+## start by adding the rep_seqs.fa to PROK_170704.fna, create the databases, and use the previously generated taxonomy file (that combined PROK with the 70% aligned rep_set)
+```
         cat /project/flatiron2/sop/PROK_170704.fna rep_seqs.fa > PROK_170704_REPSEQS.fa
 
         burst12 -d -o PROK_170704_REPSEQS.edb -a PROK_170704_REPSEQS.acc -r PROK_170704_REPSEQS.fa -f
@@ -128,14 +136,13 @@ README
         embalmulate embalmer_rerun_all_seqs.b6 otutable_rerun_all.txt taxatable_rerun_all.txt GGtrim
         # Parsed 19964535 reads [377 samples, 1901 taxa, 2044 refs]. Collating...
         19964535/20403142 = 97.8% now hit!
-            
-        # replace all underscores in otutable to spaces
+```
+## replace all underscores in otutable to spaces
      
-        9.  mkdir qiime_files
+```
             cd /Users/pvangay/Dropbox/UMN/KnightsLab/Embalmer-Open-Ref/output/with\ all\ seqs\ realigned
             bash /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/embalmer_to_qiime_output.sh otutable_rerun_all.txt taxatable_rerun_all.txt ./ /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/sequences_110716_dimitri_with_PROK_170704/PROK_170704.tre openref
-    
-        10. summarize taxa
+ 
             Rscript /Users/pvangay/Dropbox/UMN/KnightsLab/IMP/ANALYSES/analysis/lib/embalmer-post-processing/gabe.burst.summarize.r -i ./taxa0_s2_f.txt
 
-            # "Unknown" was automatically added for blank taxon name
+```
