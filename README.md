@@ -116,7 +116,7 @@ Replace all underscores in otutable to spaces
     # manually add "Unknown" for blank taxon name
 ```        
 
-# Realign all previously hit and failed sequences to the reference + denovo reps (in case new hits are better)
+# Steps to realign all sequences
 8. Start by adding the rep_seqs.fa to PROK_170704.fna, create the databases, and use the previously generated taxonomy file (that combined PROK with the 70% aligned rep_set)
 ```
 cat /project/flatiron2/sop/PROK_170704.fna rep_seqs.fa > PROK_170704_REPSEQS.fa
