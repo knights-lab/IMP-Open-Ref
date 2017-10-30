@@ -1,0 +1,9 @@
+#!/bin/bash -l
+#PBS -l walltime=96:00:00,nodes=1:ppn=32,mem=998gb
+#PBS -m abe
+#PBS -M vanga015@umn.edu
+#PBS -q ram1t
+
+cd ~/openref
+module load qiime
+filter_fasta.py -f combined_seqs.fna -o combined_seqs_nothit.fna -s seqids.hit.txt -n
