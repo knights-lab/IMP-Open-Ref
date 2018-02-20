@@ -79,11 +79,7 @@ Code in this repo attempts to do open ref BURST using the IMP dataset. Currently
 8. Now run BURST using these new `rep_seqs.fa` with all of the ones that failed `/project/flatiron2/pj/imp/all_seq_runs/OPENREF/combined_seqs_nothit.fna`
 ```
             # make your embalmer database files based on the rep_seqs.fa
-            burst12 -d -o rep_seqs.edb -a rep_seqs.acc -r rep_seqs.fa -f
-
-            burst12 -r rep_seqs.edb -a rep_seqs.acc -o /dev/null
-
-            burst12 -r rep_seqs.edb -o /dev/null
+            burst12 -d -o rep_set.edx -a rep_set.acx -r rep_set.fa -f
    
             # Let's try to guess what the taxonomy is for the new DENOVO clusters, and then align
             # Align representative sequences to PROK database at 70%
@@ -121,11 +117,7 @@ Replace all underscores in otutable to spaces
 ```
 cat /project/flatiron2/sop/PROK_170704.fna rep_seqs.fa > PROK_170704_REPSEQS.fa
 
-burst12 -d -o PROK_170704_REPSEQS.edb -a PROK_170704_REPSEQS.acc -r PROK_170704_REPSEQS.fa -f
-
-burst12 -r PROK_170704_REPSEQS.edb -a PROK_170704_REPSEQS.acc -o /dev/null
-
-burst12 -r PROK_170704_REPSEQS.edb -o /dev/null
+burst12 -d -o PROK_170704_REPSEQS.edx -a PROK_170704_REPSEQS.acx -r PROK_170704_REPSEQS.fa -f
         
 # realign ALL sequences (those that hit and didnt hit) against new database + denovo representatives along with the concatenated taxonomy file 
 burst12 -r PROK_170704_REPSEQS.edx -a PROK_170704_REPSEQS.acx -b PROK_IMP_REPSEQS.tax -q /project/flatiron2/pj/imp/all_seq_runs/1.trimmed_filtered_fastas/combined_seqs.fna -o ./embalmer_rerun_all_seqs.b6 -n -m CAPITALIST -bs -i 0.935 -f -sa
